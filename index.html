@@ -5,35 +5,291 @@
   <title>Thanh toán VietQR - Techcombank</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    :root {
-      --bg: #0b1120;
-      --card: #020617;
-      --card-soft: #0f172a;
-      --accent: #38bdf8;
-      --accent-soft: rgba(56, 189, 248, 0.15);
-      --text-main: #e5e7eb;
-      --text-muted: #9ca3af;
-      --border-soft: #1f2937;
-    }
-    * {
-      box-sizing: border-box;
-    }
     body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       margin: 0;
       padding: 16px;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: radial-gradient(circle at top, #1f2937 0, #020617 55%);
-      color: var(--text-main);
+      background: #f5f5f5;
     }
-    .shell {
-      max-width: 460px;
+    .container {
+      max-width: 480px;
       margin: 0 auto;
+      background: #fff;
+      border-radius: 10px;
+      padding: 16px;
+      box-shadow: 0 0 12px rgba(0,0,0,0.08);
     }
-    .card {
-      background: linear-gradient(145deg, var(--card) 0%, #020617 60%, #020617 100%);
-      border-radius: 20px;
-      padding: 18px 16px 18px;
-      border: 1px solid var(--border-soft);
+    h1 {
+      font-size: 20px;
+      margin-top: 0;
+      text-align: center;
+    }
+    .note {
+      font-size: 12px;
+      color: #555;
+    }
+    .qr-section,
+    .banks-section {
+      margin-top: 16px;
+    }
+    .qr-img {
+      display: block;
+      margin: 12px auto;
+      max-width: 220px;
+    }
+
+    /* Bank grid basic + icon */
+    .bank-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+      gap: 8px;
+      max-height: 320px;
+      overflow-y: auto;
+      margin-top: 8px;
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid #eee;
+      background: #fafafa;
+    }
+    .bank-item {
+      text-align: center;
+      padding: 6px 4px;
+      border-radius: 8px;
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      cursor: pointer;
+      transition: 0.1s;
+    }
+    .bank-item:hover {
+      background: #e3f2fd;
+      border-color: #2196f3;
+    }
+    .bank-logo {
+      width: 28px;
+      height: 28px;
+      object-fit: contain;
+      display: block;
+      margin: 0 auto 4px;
+    }
+    .bank-name-short {
+      font-size: 11px;
+      font-weight: 600;
+      color: #0d47a1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .bank-name-full {
+      font-size: 10px;
+      color: #555;
+      height: 24px;
+      overflow: hidden;
+    }
+
+    .search-box {
+      margin-top: 4px;
+    }
+    .search-input {
+      width: 100%;
+      padding: 6px 8px;
+      border-radius: 999px;
+      border: 1px solid #ddd;
+      font-size: 12px;
+      box-sizing: border-box;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Thanh toán qua VietQR</h1>
+
+  <p class="note">
+    Tài khoản nhận cố định:<br/>
+    STK: <b>444555666001</b> – Techcombank (BIN 970407)<br/>
+    CTK: <b>NGÔ MAI NGUYÊN DƯƠNG</b> (API dùng: NGO MAI NGUYEN DUONG)<br/>
+    Hãy mở trang này bằng điện thoại để quét QR hoặc bấm logo ngân hàng.
+  </p>
+
+  <div class="qr-section">
+    <h3>Mã VietQR</h3>
+    <img id="qrImage" class="qr-img" alt="Đang tạo mã VietQR..." />
+    <p class="note">
+      QR được tạo tự động khi tải trang (nếu cấu hình API VietQR). Nếu không, bạn có thể gán ảnh QR tĩnh ngân hàng cấp sẵn.
+    </p>
+  </div>
+
+  <div class="banks-section">
+    <h3>Chọn ngân hàng</h3>
+    <p class="note">
+      Nhấn vào logo ngân hàng để thử mở app (deeplink VietQR) trên điện thoại.
+    </p>
+    <div class="search-box">
+      <input id="bankSearch" class="search-input" placeholder="Tìm bank: VCB, MBB, ACB, Techcom..." />
+    </div>
+    <div id="bankList" class="bank-list">
+      Đang tải danh sách ngân hàng...
+    </div>
+  </div>
+</div>
+
+<script>
+  // ===== 1. TÀI KHOẢN CỐ ĐỊNH =====
+  const FIXED_ACCOUNT_NO   = "444555666001";
+  const FIXED_ACCOUNT_NAME = "NGO MAI NGUYEN DUONG";
+  const FIXED_ACQ_ID       = "970407";
+  const FIXED_ADD_INFO     = "CHUYEN KHOAN CHO DUONG";
+  const FIXED_AMOUNT       = "";
+
+  // ===== 2. CẤU HÌNH API VIETQR =====
+  const VIETQR_CLIENT_ID = " d2ec01e1-3340-406e-8382-71b70f951b66";     // thay bằng Client Id của bạn
+  const VIETQR_API_KEY  = " 2e454c88-2638-48e3-81b0-1a86842b71dd";     // thay bằng API Key của bạn
+  const STATIC_QR_IMAGE_URL = ""; // nếu không dùng API, gán URL ảnh QR tĩnh ở đây
+
+  // ===== 3. URL API =====
+  const GENERATE_QR_API = "https://api.vietqr.io/v2/generate";
+  const BANK_LIST_API   = "https://api.vietqr.io/v2/banks";
+
+  // ===== 4. TẠO QR TỰ ĐỘNG =====
+  async function autoGenerateQR() {
+    const qrImage = document.getElementById("qrImage");
+
+    // Không dùng API, dùng ảnh tĩnh
+    if ((!VIETQR_CLIENT_ID || !VIETQR_API_KEY) && STATIC_QR_IMAGE_URL) {
+      qrImage.src = STATIC_QR_IMAGE_URL;
+      qrImage.alt = "Mã VietQR";
+      return;
+    }
+
+    if (!VIETQR_CLIENT_ID || !VIETQR_API_KEY) {
+      qrImage.alt = "Chưa cấu hình API VietQR hoặc ảnh QR tĩnh.";
+      return;
+    }
+
+    const payload = {
+      accountNo:   FIXED_ACCOUNT_NO,
+      accountName: FIXED_ACCOUNT_NAME,
+      acqId:       FIXED_ACQ_ID,
+      format:      "image",
+      template:    "compact"
+    };
+    if (FIXED_AMOUNT)   payload.amount  = FIXED_AMOUNT;
+    if (FIXED_ADD_INFO) payload.addInfo = FIXED_ADD_INFO;
+
+    try {
+      qrImage.src = "";
+      qrImage.alt = "Đang tạo mã VietQR...";
+
+      const res = await fetch(GENERATE_QR_API, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-client-id": VIETQR_CLIENT_ID,
+          "x-api-key": VIETQR_API_KEY
+        },
+        body: JSON.stringify(payload)
+      });
+      const json = await res.json();
+      if (!json || json.code !== "00") {
+        console.error(json);
+        qrImage.alt = "Tạo VietQR thất bại";
+        return;
+      }
+      qrImage.src = json.data.qrDataURL;
+      qrImage.alt = "Mã VietQR";
+    } catch (e) {
+      console.error(e);
+      qrImage.alt = "Lỗi gọi API VietQR";
+    }
+  }
+
+  // ===== 5. DANH SÁCH NGÂN HÀNG =====
+  let allBanks = [];
+
+  function getAppCodeFromBank(bank) {
+    if (bank.code) return bank.code.toLowerCase();
+    if (bank.shortName) return bank.shortName.toLowerCase();
+    return "";
+  }
+
+  function renderBanks(filterText = "") {
+    const bankListDiv = document.getElementById("bankList");
+    bankListDiv.innerHTML = "";
+
+    const q = filterText.trim().toLowerCase();
+
+    allBanks
+      .filter(b => b.transferSupported === 1)
+      .filter(b => {
+        if (!q) return true;
+        const hay = (b.name || "") + " " + (b.shortName || "") + " " + (b.code || "");
+        return hay.toLowerCase().includes(q);
+      })
+      .forEach(bank => {
+        const appCode = getAppCodeFromBank(bank);
+        if (!appCode) return;
+
+        const item = document.createElement("div");
+        item.className = "bank-item";
+
+        const logo = document.createElement("img");
+        logo.className = "bank-logo";
+        logo.src = bank.logo;
+        logo.alt = bank.shortName || bank.name || "Bank";
+
+        const shortName = document.createElement("div");
+        shortName.className = "bank-name-short";
+        shortName.textContent = bank.shortName || bank.code;
+
+        const fullName = document.createElement("div");
+        fullName.className = "bank-name-full";
+        fullName.textContent = bank.name;
+
+        item.appendChild(logo);
+        item.appendChild(shortName);
+        item.appendChild(fullName);
+
+        item.onclick = () => {
+          const url = "https://dl.vietqr.io/pay?app=" + encodeURIComponent(appCode);
+          window.open(url, "_blank");
+        };
+
+        bankListDiv.appendChild(item);
+      });
+
+    if (!bankListDiv.children.length) {
+      bankListDiv.textContent = "Không tìm thấy ngân hàng phù hợp.";
+    }
+  }
+
+  async function loadBanks() {
+    const bankListDiv = document.getElementById("bankList");
+    bankListDiv.textContent = "Đang tải danh sách ngân hàng...";
+
+    try {
+      const res = await fetch(BANK_LIST_API);
+      const json = await res.json();
+      if (!json || !json.data) {
+        bankListDiv.textContent = "Không lấy được dữ liệu ngân hàng.";
+        return;
+      }
+      allBanks = json.data;
+      renderBanks();
+    } catch (e) {
+      console.error(e);
+      bankListDiv.textContent = "Lỗi khi tải danh sách ngân hàng.";
+    }
+  }
+
+  document.getElementById("bankSearch").addEventListener("input", (e) => {
+    renderBanks(e.target.value);
+  });
+
+  // ===== 6. TỰ CHẠY =====
+  autoGenerateQR();
+  loadBanks();
+</script>
+</body>
+</html>
       box-shadow:
         0 18px 45px rgba(0,0,0,0.65),
         0 0 0 1px rgba(148, 163, 184, 0.03);
