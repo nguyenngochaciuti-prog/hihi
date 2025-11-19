@@ -31,36 +31,59 @@
     .qr-section, .banks-section {
       margin-top: 16px;
     }
-    a.btn {
-      display: inline-block;
-      padding: 8px 12px;
-      margin: 4px;
-      border-radius: 4px;
-      border: none;
-      text-decoration: none;
-      cursor: pointer;
-      font-size: 13px;
-      white-space: nowrap;
-    }
-    a.btn-bank {
-      background: #e3f2fd;
-      color: #0d47a1;
-    }
-    .bank-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      max-height: 420px;
-      overflow-y: auto;
-      margin-top: 8px;
-      border: 1px solid #eee;
-      padding: 8px;
-      border-radius: 4px;
-    }
     .qr-img {
       display: block;
       margin: 12px auto;
       max-width: 260px;
+    }
+
+    /* Bank grid gọn + icon */
+    .bank-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+      gap: 10px;
+      max-height: 420px;
+      overflow-y: auto;
+      margin-top: 8px;
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid #eee;
+    }
+    .bank-item {
+      text-align: center;
+      padding: 8px 4px;
+      border-radius: 8px;
+      background: #f9fafb;
+      cursor: pointer;
+      transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.1s ease;
+    }
+    .bank-item:hover {
+      background: #e3f2fd;
+      box-shadow: 0 0 4px rgba(0,0,0,0.08);
+      transform: translateY(-1px);
+    }
+    .bank-logo {
+      width: 32px;
+      height: 32px;
+      object-fit: contain;
+      border-radius: 6px;
+      background: #fff;
+      border: 1px solid #eee;
+      margin-bottom: 4px;
+    }
+    .bank-name-short {
+      font-size: 11px;
+      font-weight: 600;
+      color: #0d47a1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .bank-name-full {
+      font-size: 10px;
+      color: #555;
+      height: 24px;
+      overflow: hidden;
     }
   </style>
 </head>
@@ -71,23 +94,22 @@
   <p class="note">
     Tài khoản nhận cố định: <br/>
     STK: <b>444555666001</b> – Ngân hàng Techcombank (BIN 970407)<br/>
-    CTK: <b>NGÔ MAI NGUYÊN DƯƠNG</b> (API dùng: NGO MAI NGUYEN DUONG)<br/>
-    Vui lòng mở trang này bằng điện thoại để bấm nút ngân hàng và nhảy qua app.
+    CTK: <b>NGÔ MAI NGUYÊN DƯƠNG</b> (CTK: NGO MAI NGUYEN DUONG)<br/>
+    Vui lòng mở trang này bằng điện thoại để chọn logo ngân hàng và nhảy qua app.
   </p>
 
   <div class="qr-section">
     <h3>Mã VietQR</h3>
     <img id="qrImage" class="qr-img" alt="Đang tạo mã VietQR..." />
     <p class="note">
-      QR này được tạo tự động khi tải trang. Nếu không cấu hình API VietQR, có thể dùng ảnh QR tĩnh ngân hàng cấp sẵn.
+      QR được tạo tự động khi tải trang. Nếu không dùng API VietQR, có thể thay bằng ảnh QR tĩnh ngân hàng cấp sẵn.
     </p>
   </div>
 
   <div class="banks-section">
-    <h3>Danh sách ngân hàng hỗ trợ VietQR & Deeplink</h3>
+    <h3>Chọn ngân hàng để mở app</h3>
     <p class="note">
-      Danh sách lấy từ API VietQR: các ngân hàng có hỗ trợ chuyển khoản bằng mã VietQR.  
-      Nhấn vào nút để thử mở app (deeplink) khi truy cập bằng điện thoại.
+      Nhấn vào logo ngân hàng bạn dùng. Khi truy cập bằng điện thoại, hệ thống sẽ cố gắng mở app tương ứng (deeplink VietQR).
     </p>
     <div id="bankList" class="bank-list">
       Đang tải danh sách ngân hàng...
@@ -96,29 +118,38 @@
 </div>
 
 <script>
-  // ===== CẤU HÌNH TÀI KHOẢN CỐ ĐỊNH =====
-  const FIXED_ACCOUNT_NO   = "444555666001";          // STK
-  const FIXED_ACCOUNT_NAME = "NGO MAI NGUYEN DUONG";  // không dấu, in hoa
-  const FIXED_ACQ_ID       = "970407";                // BIN Techcombank
-  const FIXED_ADD_INFO     = "CHUYEN KHOAN CHO DUONG";
-  const FIXED_AMOUNT       = ""; // để trống -> khách tự nhập số tiền trong app
+  // ===== 1. TÀI KHOẢN CỐ ĐỊNH CỦA BẠN =====
+  const FIXED_ACCOUNT_NO   = "444555666001";           // STK
+  const FIXED_ACCOUNT_NAME = "NGO MAI NGUYEN DUONG";   // không dấu, in hoa
+  const FIXED_ACQ_ID       = "970407";                 // BIN Techcombank
+  const FIXED_ADD_INFO     = "CHUYEN KHOAN CHO DUONG"; // nội dung
+  const FIXED_AMOUNT       = "";                       // để "" cho khách tự nhập tiền trong app
 
-  // ===== CẤU HÌNH API VIETQR (nếu dùng) =====
-  const VIETQR_CLIENT_ID = "";   // Điền Client Id VietQR
-  const VIETQR_API_KEY  = "";    // Điền API Key VietQR
+  // ===== 2. CẤU HÌNH API VIETQR (CẦN THAY THẬT Ở ĐÂY) =====
+  const VIETQR_CLIENT_ID = "d2ec01e1-3340-406e-8382-71b70f951b66";   // <--- NHÉT CLIENT_ID VÀO ĐÂY
+  const VIETQR_API_KEY  = "2e454c88-2638-48e3-81b0-1a86842b71dd";    // <--- NHÉT API_KEY VÀO ĐÂY
 
-  const BANK_LIST_API   = "https://api.vietqr.io/v2/banks";
+  // Nếu không muốn dùng API (chỉ dùng ảnh QR tĩnh), bạn có thể gán trực tiếp:
+  const STATIC_QR_IMAGE_URL = ""; // ví dụ: "https://your-domain.com/qr-techcom-444555666001.png"
+
+  // ===== 3. URL API =====
   const GENERATE_QR_API = "https://api.vietqr.io/v2/generate";
+  const BANK_LIST_API   = "https://api.vietqr.io/v2/banks";
 
-  // Tạo mã VietQR tự động khi load trang
+  // ===== 4. TỰ TẠO MÃ VIETQR KHI LOAD TRANG =====
   async function autoGenerateQR() {
     const qrImage = document.getElementById("qrImage");
 
-    // Nếu bạn không dùng API, có thể gán thẳng ảnh QR tĩnh ở đây rồi return
+    // Trường hợp không dùng API VietQR, chỉ dùng ảnh QR tĩnh
+    if ((!VIETQR_CLIENT_ID || !VIETQR_API_KEY) && STATIC_QR_IMAGE_URL) {
+      qrImage.src = STATIC_QR_IMAGE_URL;
+      qrImage.alt = "Mã VietQR (ảnh tĩnh)";
+      return;
+    }
+
+    // Nếu chưa cấu hình API và cũng chưa có ảnh tĩnh thì báo
     if (!VIETQR_CLIENT_ID || !VIETQR_API_KEY) {
-      // Ví dụ nếu có file qr.png trên host:
-      // qrImage.src = "qr_techcombank_444555666001.png";
-      qrImage.alt = "Chưa cấu hình API VietQR. Vui lòng gán ảnh QR tĩnh trong code.";
+      qrImage.alt = "Chưa cấu hình API VietQR hoặc ảnh QR tĩnh.";
       return;
     }
 
@@ -162,7 +193,14 @@
     }
   }
 
-  // Load danh sách ngân hàng + deeplink
+  // ===== 5. LẤY DANH SÁCH NGÂN HÀNG + ICON, RENDER GRID =====
+  function getAppCodeFromBank(bank) {
+    // Ưu tiên code (VD: VCB, MBB, TCB...), fallback shortName
+    if (bank.code) return bank.code.toLowerCase();
+    if (bank.shortName) return bank.shortName.toLowerCase();
+    return "";
+  }
+
   async function loadBanks() {
     const bankListDiv = document.getElementById("bankList");
     bankListDiv.textContent = "Đang tải danh sách ngân hàng...";
@@ -181,11 +219,48 @@
       json.data
         .filter(b => b.transferSupported === 1)
         .forEach(bank => {
-          const btn = document.createElement("a");
-          btn.className = "btn btn-bank";
-          btn.textContent = bank.shortName + " (" + bank.name + ")";
+          const appCode = getAppCodeFromBank(bank);
+          if (!appCode) return;
 
-          const appCode = (bank.shortName || "").toLowerCase();
+          const item = document.createElement("div");
+          item.className = "bank-item";
+
+          const logo = document.createElement("img");
+          logo.className = "bank-logo";
+          logo.src = bank.logo;
+          logo.alt = bank.shortName || bank.name || "Bank";
+
+          const shortName = document.createElement("div");
+          shortName.className = "bank-name-short";
+          shortName.textContent = bank.shortName || bank.code;
+
+          const fullName = document.createElement("div");
+          fullName.className = "bank-name-full";
+          fullName.textContent = bank.name;
+
+          item.appendChild(logo);
+          item.appendChild(shortName);
+          item.appendChild(fullName);
+
+          item.onclick = () => {
+            const url = "https://dl.vietqr.io/pay?app=" + encodeURIComponent(appCode);
+            window.open(url, "_blank");
+          };
+
+          bankListDiv.appendChild(item);
+        });
+    } catch (e) {
+      console.error(e);
+      bankListDiv.textContent = "Lỗi khi tải danh sách ngân hàng.";
+    }
+  }
+
+  // ===== 6. TỰ CHẠY KHI MỞ TRANG =====
+  autoGenerateQR();
+  loadBanks();
+</script>
+</body>
+</html>
 
           btn.href = "https://dl.vietqr.io/pay?app=" + encodeURIComponent(appCode);
           btn.target = "_blank";
